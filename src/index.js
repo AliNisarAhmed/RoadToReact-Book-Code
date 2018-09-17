@@ -5,7 +5,7 @@ import styled, { injectGlobal } from 'styled-components';
 import "./styles.css";
 
 const DEFAULT_QUERY = 'redux';
-const DEFAULT_HPP = "20";
+const DEFAULT_HPP = "20";  //Hits per page, results to show on a search
 
 const PATH_BASE = 'https://hn.algolia.com/api/v1';
 const PATH_SEARCH = '/search?';
@@ -13,7 +13,7 @@ const PARAM_SEARCH = 'query=';
 const PARAM_PAGE = `page=`
 const PARAM_HPP = 'hitsPerPage=';
 
-const CORS = 'https://cors-anywhere.herokuapp.com/'
+// const CORS = 'https://cors-anywhere.herokuapp.com/'
 
 const url = `${PATH_BASE}${PATH_SEARCH}${PARAM_SEARCH}${DEFAULT_QUERY}`;
 
@@ -74,20 +74,32 @@ class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      result: null,
-      searchTerm: '',
+      results: null,
+      searchKey: '',  // Since searchTerm changes as the user types, we need searchKey, which is set equal to searchTerm as soon as the user 
+                    // searches, this is done in the componentDidMount() and onSearchSubmit() methods
+      searchTerm: DEFAULT_QUERY,
     };
   }
 
   componentDidMount() {
+    const { searchTerm } = this.state;
+    this.setState({ searchKey: searchTerm });
     this.fetchSearchStories(this.state.searchTerm);
   }
 
   render() {
-    const { result, searchTerm } = this.state;
-    const page = (result && result.page) || 0;
-    if(!result) return null;
-    console.log(result);
+    const { searchKey, results, searchTerm } = this.state;
+    
+    const page = ( 
+      results && 
+      results[searchKey] && 
+      results[searchKey].page ) || 0;
+    const list = (
+      results &&
+      results[searchKey] &&
+      results[searchKey].hits
+    ) || [];
+
     return (
       <Page>
         <Search 
@@ -97,41 +109,52 @@ class App extends React.Component {
         >
           <span>Search</span>
         </Search>
-        {
-          result &&
-          <Table
-            list={result.hits}
-            onDismiss={this.onHandleDismiss}
-          /> 
-        }
+        <Table
+          list={list}
+          onDismiss={this.onHandleDismiss}
+        />         
         <div>
           <Button
-            onClick={() => this.fetchSearchStories(searchTerm, page + 1)}
+            onClick={() => this.fetchSearchStories(searchKey, page + 1)}
           >
             More
           </Button>
         </div>
-    </Page>
+      </Page>
     );
   }
 
   setSearchTopStories = (result) => {
     const { hits, page } = result;
-    const oldHits = page === 0
-      ? []
-      : this.state.result.hits;
+    const { searchKey, results } = this.state;
+    const oldHits = results && results[searchKey]  // if old hits already exist in state, we use them, else we set up a new array
+      ? results[searchKey].hits
+      : [];
 
     const updatedHits = [
       ...oldHits,
       ...hits
     ];
 
-    this.setState({ result: { hits: updatedHits, page} });
+    this.setState({
+      results: {
+        ...results,
+        [searchKey]: { hits: updatedHits, page }  // old results object is now combined with new searchKey, which stores { hits, page }
+      }
+    });
   }
 
   onHandleDismiss = (id) => {
-    const updatedHits = this.state.result.hits.filter(item => item.objectID !== id);
-    this.setState(() => ({result: { ...this.state.result, hits: updatedHits }}));
+    const { searchKey, results } = this.state;
+    const { hits, page } = results[searchKey];
+
+    const updatedHits = hits.filter(item => item.objectID !== id);
+    this.setState({
+      results: {
+        ...results,
+        [searchKey]: { hits: updatedHits, page}
+      }
+    })
   }
 
   onSearchChange = (e) => {
@@ -146,9 +169,18 @@ class App extends React.Component {
   }
 
   onSearchSubmit = (e) => {
-    const { searctTerm } = this.state;
-    this.fetchSearchStories(searctTerm);
+    const { searchTerm } = this.state;
+    this.setState({ searchKey: searchTerm });
+
+    if (this.needsToSearchTopStores(searchTerm)) {  // we make the fetch call only when results are not already available inside the state
+      this.fetchSearchStories(searchTerm);
+    }
+
     e.preventDefault();
+  }
+
+  needsToSearchTopStores = (searchTerm) => {   // This method checks whether we already have search results for the 'searchTerm' in the state
+    return !this.state.results[searchTerm];
   } 
 }
 
