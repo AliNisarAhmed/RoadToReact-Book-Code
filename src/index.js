@@ -72,6 +72,8 @@ const Page = styled.div`
 `;
 
 class App extends React.Component {
+  _isMounted = false;
+
   constructor(props) {
     super(props);
     this.state = {
@@ -84,9 +86,15 @@ class App extends React.Component {
   }
 
   componentDidMount() {
+    this._isMounted = true;
+
     const { searchTerm } = this.state;
     this.setState({ searchKey: searchTerm });
     this.fetchSearchStories(this.state.searchTerm);
+  }
+
+  componentWillUnmount() {
+    this._isMounted = false;
   }
 
   render() {
@@ -172,8 +180,8 @@ class App extends React.Component {
   fetchSearchStories = (searchTerm, page = 0) => {
     axios.get(`${PATH_BASE}${PATH_SEARCH}${PARAM_SEARCH}${searchTerm}&${PARAM_PAGE}${page}&${PARAM_HPP}${DEFAULT_HPP}`)
       // .then(response => response.json())   // no longer necessary with axios instead of fetch
-      .then(result => this.setSearchTopStories(result.data))
-      .catch(error => this.setState({ error }));
+      .then(result => this._isMounted && this.setSearchTopStories(result.data))
+      .catch(error => this._isMounted && this.setState({ error }));
   }
 
   onSearchSubmit = (e) => {
