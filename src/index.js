@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom";
+import axios from 'axios';
 import styled, { injectGlobal } from 'styled-components';
 
 import "./styles.css";
@@ -78,6 +79,7 @@ class App extends React.Component {
       searchKey: '',  // Since searchTerm changes as the user types, we need searchKey, which is set equal to searchTerm as soon as the user 
                     // searches, this is done in the componentDidMount() and onSearchSubmit() methods
       searchTerm: DEFAULT_QUERY,
+      error: null,
     };
   }
 
@@ -88,7 +90,7 @@ class App extends React.Component {
   }
 
   render() {
-    const { searchKey, results, searchTerm } = this.state;
+    const { searchKey, results, searchTerm, error } = this.state;
     
     const page = ( 
       results && 
@@ -109,16 +111,22 @@ class App extends React.Component {
         >
           <span>Search</span>
         </Search>
-        <Table
-          list={list}
-          onDismiss={this.onHandleDismiss}
-        />         
+        {
+          error 
+          ? <p>Somthing went wrong.</p>
+          : 
+            <Table
+              list={list}
+              onDismiss={this.onHandleDismiss}
+            />
+        }
         <div>
           <Button
             onClick={() => this.fetchSearchStories(searchKey, page + 1)}
+            disabled={error}
           >
             More
-          </Button>
+              </Button>
         </div>
       </Page>
     );
@@ -162,10 +170,10 @@ class App extends React.Component {
   }
 
   fetchSearchStories = (searchTerm, page = 0) => {
-    fetch(`${PATH_BASE}${PATH_SEARCH}${PARAM_SEARCH}${searchTerm}&${PARAM_PAGE}${page}&${PARAM_HPP}${DEFAULT_HPP}`)
-      .then(response => response.json())
-      .then(result => this.setSearchTopStories(result))
-      .catch(error => error);
+    axios.get(`${PATH_BASE}${PATH_SEARCH}${PARAM_SEARCH}${searchTerm}&${PARAM_PAGE}${page}&${PARAM_HPP}${DEFAULT_HPP}`)
+      // .then(response => response.json())   // no longer necessary with axios instead of fetch
+      .then(result => this.setSearchTopStories(result.data))
+      .catch(error => this.setState({ error }));
   }
 
   onSearchSubmit = (e) => {
